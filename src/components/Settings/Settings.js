@@ -10,6 +10,7 @@ import themes from "../../theme/theme";
 import Dropdown from "../utils/Dropdown/Dropdown";
 import {observer} from "mobx-react-lite"
 import {inject} from "mobx-react";
+import gameDifficultyConfig from "./../../config/game.difficulty.config";
 
 const Settings = inject("config")(observer(({config}) => {
  //   const config = useConfigurationStore();
@@ -40,48 +41,7 @@ const Settings = inject("config")(observer(({config}) => {
 
 
     const onChangeDifficulty = useCallback(value => {
-        const nextConfig = {}
-        switch (value){
-            case "beginner" : {
-                nextConfig.gameSize = 25;
-                nextConfig.wallThrough = true;
-                nextConfig.levelSpeedRatio = 0.99;
-                nextConfig.startSteepInterval = 1200;
-                nextConfig.drawBackground = true;
-                break;
-            }
-            case "easy" : {
-                nextConfig.gameSize = 25;
-                nextConfig.wallThrough = true;
-                nextConfig.levelSpeedRatio = 0.98;
-                nextConfig.startSteepInterval = 1000;
-                break;
-            }
-            case "normal" : {
-                nextConfig.gameSize = 20;
-                nextConfig.wallThrough = true;
-                nextConfig.levelSpeedRatio = 0.95;
-                nextConfig.startSteepInterval = 1000;
-                break;
-            }
-            case "hard" : {
-                nextConfig.gameSize = 20;
-                nextConfig.wallThrough = false;
-                nextConfig.levelSpeedRatio = 0.93;
-                nextConfig.startSteepInterval = 900;
-                nextConfig.drawBackground = false;
-                break;
-            }
-            case "master" : {
-                nextConfig.gameSize = 15;
-                nextConfig.wallThrough = false
-                nextConfig.levelSpeedRatio = 0.90;
-                nextConfig.startSteepInterval = 800;
-                nextConfig.themeName = "red";
-                nextConfig.drawBackground = false;
-                break;
-            }
-        }
+        const nextConfig = gameDifficultyConfig[value];
         nextConfig.difficulty = value;
         config.update(nextConfig)
     }, [config])

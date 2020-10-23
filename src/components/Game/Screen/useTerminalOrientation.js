@@ -5,15 +5,15 @@ export default function useTerminalOrientation(config){
         const size = config.current.gameSize;
         if(current.x === relative.x){
             if((current.y + 1) % size === relative.y){
-                return "up";
+                return "Up";
             } else {
-                return "down"
+                return "Down"
             }
         } else if(current.y === relative.y){
             if((current.x + 1) % size === relative.x){
-                return "left"
+                return "Left"
             } else {
-                return "right";
+                return "Right";
             }
         }
         return null;

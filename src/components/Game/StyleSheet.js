@@ -10,7 +10,8 @@ export default (config) => ({
 
     overlay: {
         width: "80%",
-        height: "60%",
+        minHeight: "70%",
+        maxHeight: "90%",
         backgroundColor: theme[config.current.themeName].colors.background,
         borderWidth: 1,
         borderRadius: 3,
@@ -18,13 +19,15 @@ export default (config) => ({
         justifyContent: "space-between",
     },
     overlaySmall :{
+        minHeight: "30%",
         height: "30%",
     },
 
     section: {
         alignItems: "center",
         display: "flex",
-        flexGrow: 2
+        flexGrow: 2,
+        marginBottom: 5,
     },
 
     sectionBottom:{
@@ -32,12 +35,13 @@ export default (config) => ({
     },
 
     group: {
-        width: "50%",
+        width: "70%",
         marginHorizontal: "auto",
         display: "flex",
         flexDirection: "row",
         justifyContent: "space-between"
     },
+
 
     title: {
         width: "100%",
@@ -45,6 +49,7 @@ export default (config) => ({
         color: theme[config.current.themeName].colors.light,
         fontSize: 40,
         fontFamily: "Anton-Regular",
+        marginBottom: 10,
     },
 
     label:{
@@ -54,6 +59,15 @@ export default (config) => ({
         fontSize: 20,
         fontFamily: "Anton-Regular",
     },
+
+    resultsLabel: {
+        fontSize: 16,
+    },
+
+    resultsCurrent: {
+        color: theme[config.current.themeName].colors.primary,
+    },
+
 
     value:{
         textAlign: "left",

@@ -2,15 +2,24 @@ import {StyleSheet} from "react-native";
 
 export default () => ({
     container: {
-        height: 60,
+        height: 20,
+        marginTop: 40,
+        marginBottom: 5,
         width: "100%",
         display: "flex",
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "flex-end",
-        paddingVertical: 5,
         paddingHorizontal: "1%",
     },
+
+    group:{
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        height: "100%",
+    },
+
 
     containerScore: {
         display: "flex",
@@ -18,6 +27,7 @@ export default () => ({
         alignItems: "flex-end",
         backgroundColor: "red"
     },
+
     score: {
         color: "white",
         fontSize: 16,
@@ -31,5 +41,18 @@ export default () => ({
         fontFamily: "RobotoMono-Bold",
         letterSpacing: 2,
     },
+
+    lives:{
+        color: "white",
+        fontSize: 16,
+        fontFamily: "RobotoMono-Bold",
+        letterSpacing: 2,
+    },
+
+    spriteImage: {
+       aspectRatio: 1,
+       height: "100%",
+       padding: 2,
+    }
 
 })

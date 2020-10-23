@@ -3,9 +3,12 @@ import Coordinates from "./Coordinates";
 export default class Bonus extends Coordinates {
     points = 0;
     speedRatio = null;
+    expired = null;
+    creationTime = null;
     constructor(coordinates, config) {
         super(coordinates.x , coordinates.y );
-        this.speedRatio = config.levelSpeedRatio
+        this.speedRatio = config.levelSpeedRatio;
+        this.creationTime = new Date().getTime();
     }
 
     _transform(state, modification){
@@ -17,12 +20,18 @@ export default class Bonus extends Coordinates {
         return nextState;
     }
 
-    modify(state){
-        return this._transform(state, {
-            score: state.score + this.points,
+    modify(state, snake){
+        const changes = {
+            score: state.score + this.points * (state.diamonds + 1),
             level: state.level + 1,
-            speed: state.speed * this.speedRatio
-        });
+            speed: state.speed * this.speedRatio,
+            diamonds: 0
+        }
+
+        return {
+            state : this._transform(state, changes),
+            snake: snake
+        }
     }
 
     toView(){
@@ -31,5 +40,10 @@ export default class Bonus extends Coordinates {
             y : this.y,
             type: this.type,
         }
+    }
+
+    isExpired(){
+        if(this.expired === undefined || this.expired === null) return false;
+        return new Date().getTime() - this.creationTime > this.expired;
     }
 }

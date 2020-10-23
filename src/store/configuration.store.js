@@ -4,17 +4,44 @@ import {makeAutoObservable, runInAction} from 'mobx';
 
 export class ConfigurationStore {
     _config = {
-        gameSize: 25,
-        levelSpeedRatio: 0.98,
-        startSteepInterval: 1000,
-        themeName: "green",
-        wallThrough: true,
-        difficulty: "easy",
+        themeName: "blue",
+        difficulty: "beginner",
         drawBackground: false,
+        wallThrough : true,
+
+        gameSize : 25,
+
+        levelSpeedRatio : 0.98,
+        startSteepInterval : 1200,
+
+        turtleProbability : 1/200,
+        turtleExpiryLimitRange : [5000, 20000],
+        turtleLimit : 2,
+
+        lives : 3,
+        heartProbability : 1/200,
+        heartExpiryLimitRange : [5000, 10000],
+        heartLimit : 2,
+
+        diamondProbability : 1/25,
+        diamondLimit : 3,
+        diamondExpiryLimitRange : [10000, 50000],
+
+        bombProbability: 1/100,
+        bombLimit: 1,
+        bombExpiryLimitRange: [5000, 10000],
+
+        swordProbability: 1/750,
+        swordLimit: 2,
+        swordExpiryLimitRange: [2000, 10000],
+        swordCutRange: [30, 60], // catting about 30 to 50 %
     }
+
+    _state = {storeLoadingState: "loading"}
 
     constructor() {
         makeAutoObservable(this);
+        AsyncStorage.clear();
         this._restoreFromStore().catch((error) => {
             console.warn("During restore value from local storage occur problem", error.message);
         })
@@ -33,7 +60,7 @@ export class ConfigurationStore {
                     break;
                 }
                 case "boolean": {
-                    value = !!value;
+                    value = item.value === "true";
                     break;
                 }
                 case "object" : {
@@ -44,12 +71,12 @@ export class ConfigurationStore {
                     value = item.value
                 }
             }
-
             nextStore[key] = value
         }
 
         runInAction( () => {
             this._config = Object.assign(this._config, nextStore);
+            this._state = {storeLoadingState: "loaded"}
         })
     }
 
@@ -75,6 +102,10 @@ export class ConfigurationStore {
 
     get current(){
         return this._config;
+    }
+
+    get state(){
+        return this._state.storeLoadingState;
     }
 }
 

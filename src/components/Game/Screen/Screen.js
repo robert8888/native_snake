@@ -1,6 +1,5 @@
 import React, {useRef, useEffect, useCallback, useState} from "react";
 import Canvas from 'react-native-canvas';
-import Image from 'react-native-canvas/dist/Image';
 import {View, Image as NativeImage} from "react-native";
 import styleSheet from "./StyleSheet"
 import useStyle from "../../../utils/useStyle";
@@ -9,40 +8,38 @@ import useTerminalOrientation from "./useTerminalOrientation";
 import useSegmentOrientation from "./useSegmentOrientation";
 import {inject} from "mobx-react";
 import theme from "../../../theme/theme";
+import ImageCanvas from "../../utils/ImageCanvas/ImageCanvas";
 
-const Screen = inject("config", "view")(observer(({config, view}) => {
+const Screen = inject("config", "viewBus")(observer(({config, viewBus}) => {
     const styles = useStyle(styleSheet, config);
-    const {data} = view;
 
-    const getTerminalOrientation = useTerminalOrientation(config)
-    const getSegmentOrientation = useSegmentOrientation(config)
-    const main = useRef();
+    const getTerminalOrientation = useTerminalOrientation(config);
+    const getSegmentOrientation = useSegmentOrientation(config);
+
+    const imageCanvas = useRef();
     const background = useRef();
-    const [mainRenderContext, setMainRenderContext] = useState(null)
+
     const [canvasSize, setCanvasSize] = useState(null);
     const [gridSize, setGridSize] = useState();
-    const [imageResources, setImageResources] = useState(null);
 
-    useEffect(function loadImageResource(){
-        if(!main) return;
+    useEffect(function addImageResource(){
         const images = theme[config.current.themeName].images;
-        const loads = [];
-        for(let name in images){
-            const image = new Image(main.current, gridSize, gridSize);
-            image.src = NativeImage.resolveAssetSource(images[name].source).uri;
-            loads.push(new Promise((res, rej) => {
-                image.addEventListener("load", () => {
-                    res([name, image])
-                })
-                image.addEventListener("error", () => {
-                    rej(name);
-                })
-            }))
+        for(let name of ["snake", "bonuses"]){
+            const uri  = NativeImage.resolveAssetSource(images[name].source).uri;
+            imageCanvas.current.addResources(name, uri)
         }
-        Promise.all(loads).then(resources =>
-            setImageResources(new Map(resources))
-        )
-    }, [config ,setImageResources, main])
+    }, [config, imageCanvas])
+
+    useEffect(function addSprites(){
+        const images = theme[config.current.themeName].images;
+        for(let resourceName of ["snake", "bonuses"]){
+            const sprites = images[resourceName].sprite;
+            for(let spriteName in sprites){
+                const rect = sprites[spriteName]
+                imageCanvas.current.addSprite(resourceName, spriteName, Object.values(rect))
+            }
+        }
+    }, [config, imageCanvas])
 
     const updateCanvasSize = useCallback(event =>{
         const layout = event.nativeEvent.layout;
@@ -50,19 +47,11 @@ const Screen = inject("config", "view")(observer(({config, view}) => {
             width: layout.width,
             height: layout.height,
         }
-        const gridSize = (Math.min(size.width, size.height) - 4)/ config.current.gameSize;
+        const gridSize = (Math.min(size.width, size.height) - 8)/ config.current.gameSize;
         setCanvasSize(size)
         setGridSize(gridSize);
-    }, [setCanvasSize, setGridSize])
-
-    const updateMainCanvasRef = useCallback((ref) =>{
-        main.current = ref;
-        if(!main.current || !canvasSize) return;
-        const ctx = main.current.getContext('2d');
-        ctx.canvas.width = canvasSize.width;
-        ctx.canvas.height = canvasSize.height;
-        setMainRenderContext(ctx);
-    }, [main, setMainRenderContext, canvasSize])
+        imageCanvas.current.setResolution(config.current.gameSize);
+    }, [setCanvasSize, setGridSize, imageCanvas])
 
     const renderBackground = useCallback((ctx) => {
         ctx.fillStyle = theme[config.current.themeName].colors.backgroundGrid;
@@ -72,7 +61,7 @@ const Screen = inject("config", "view")(observer(({config, view}) => {
             }
         }
         ctx.fill();
-    }, [canvasSize, gridSize, config, setGridSize]);
+    }, [canvasSize, gridSize, config]);
 
     useEffect(()=>{
         if(!config.current.drawBackground || !background || !canvasSize) return;
@@ -82,82 +71,52 @@ const Screen = inject("config", "view")(observer(({config, view}) => {
         renderBackground(ctx);
     }, [config, renderBackground, canvasSize, background])
 
-
-    const renderSnake = useCallback((ctx, snake)=>{
+    const renderSnake = useCallback((snake)=>{
         if(!snake) return;
-        const sprite = theme[config.current.themeName].images.snake.sprite;
 
         for(let i = 0 ; i < snake.segments.length; i++){
             const current = snake.segments[i];
-            let rect = null;
+            let spriteName;
             if(i === 0){ // head
                 const next = snake.segments[i + 1];
                 const orientation = getTerminalOrientation(current, next)
-                rect = sprite.head[orientation];
+                spriteName = "head" + orientation;
             } else if(i === snake.segments.length - 1){ //tail
                 const prev = snake.segments[i - 1];
                 const orientation = getTerminalOrientation(current, prev)
-                rect = sprite.tail[orientation];
+                spriteName = "tail" + orientation;
             } else { // body
                 const prev = snake.segments[i - 1];
                 const next = snake.segments[i + 1];
                 const orientation = getSegmentOrientation(prev, current, next);
-                rect = sprite.segments[orientation];
+                spriteName = "segment" + orientation;
             }
-
-            if(!rect) continue;
-
-            ctx.drawImage(imageResources.get("snake"),
-                rect.x,
-                rect.y,
-                rect.width,
-                rect.height,
-                snake.segments[i].x * gridSize,
-                snake.segments[i].y * gridSize,
-                gridSize,
-                gridSize
-            )
+            if(!spriteName) continue;
+            imageCanvas.current.addFrameItem("snake", spriteName, current.x, current.y);
         }
+    }, [gridSize, config, imageCanvas])
 
-    }, [gridSize, imageResources, config])
-
-    const renderBonuses = useCallback((ctx, bonuses) => {
+    const renderBonuses = useCallback((bonuses) => {
         if(!bonuses) return;
-        const sprite = theme[config.current.themeName].images.bonuses.sprite;
         for(let bonus of bonuses){
-            const rect = sprite[bonus.type]
-            ctx.drawImage(imageResources.get("bonuses"),
-                rect.x,
-                rect.y,
-                rect.width,
-                rect.height,
-                bonus.x * gridSize,
-                bonus.y * gridSize,
-                gridSize,
-                gridSize
-            )
+            imageCanvas.current.addFrameItem("bonuses", bonus.type, bonus.x, bonus.y);
         }
-    }, [gridSize, imageResources])
+    }, [gridSize])
 
-    const clear = useCallback((ctx) => {
-        ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
-    }, [canvasSize])
+    const render = useCallback((view) => {
+        renderSnake(view?.snake);
+        renderBonuses(view?.bonuses);
+        imageCanvas.current.flush()
+    }, [renderSnake, renderBonuses])
 
-    const render = useCallback((ctx, view) => {
-        if(!imageResources) return;
-        clear(ctx);
-        renderSnake(ctx, view?.snake);
-        renderBonuses(ctx, view?.bonuses);
-    }, [imageResources, renderSnake, renderBonuses, clear])
-
-    useEffect(function renderNextFrame(){
-        render(mainRenderContext, data);
-    }, [data , render, mainRenderContext]);
+    useEffect(()=>{
+        viewBus.setUpdateCallback(render);
+    }, [viewBus])
 
     return (
         <View style={styles.wrapper} onLayout={updateCanvasSize}>
-            <Canvas ref={background} style={{position: "absolute"}}/>
-            <Canvas ref={updateMainCanvasRef} style={{position: "absolute"}}/>
+            <Canvas ref={background} style={styles.backgroundCanvas}/>
+            <ImageCanvas ref={imageCanvas} containerStyle={styles.imageCanvas}/>
         </View>
     )
 }))

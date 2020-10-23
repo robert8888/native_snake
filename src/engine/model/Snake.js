@@ -35,11 +35,23 @@ export default class Snake {
     }
 
     get segments(){
-        return this._segments.slice(1, -1);
+        return this._segments;
+    }
+
+    set segments(segments){
+        this._segments = segments;
+    }
+
+    get length(){
+        return this._segments.length;
     }
 
     get segmentsIds(){
         return this._ids;
+    }
+
+    set segmentsIds(ids){
+        this._ids = ids
     }
 
     has(coordinates){

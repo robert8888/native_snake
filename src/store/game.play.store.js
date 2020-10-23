@@ -5,6 +5,8 @@ export class GamePlayStateStore {
     score = 1;
     level = 0;
     speed = 0;
+    lives = 1;
+    diamonds = 0;
     gameOver = false;
     pause = false;
 

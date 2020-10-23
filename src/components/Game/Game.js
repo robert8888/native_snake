@@ -10,18 +10,18 @@ import Controls from "./Controls/Controls";
 import useStyle from "../../utils/useStyle";
 import Touchable from "../utils/Touchable";
 import Paused from "./PopUps/Paused";
-import GameOver from "./PopUps/GameOver";
+import GameOver from "./PopUps/GameOver/GameOver";
 import {inject} from "mobx-react";
 
 
-const Game = inject("config", "view", "results", "playState")
-(({view, config, results, playState }) => {
+const Game = inject("config", "viewBus", "results", "playState")
+(({viewBus, config, results, playState }) => {
     const styles = useStyle(_styles, config);
     const [controller, gameState] = useSnake({
         configStore: config,
         playStateStore: playState,
-        viewStore: view,
         resultsStore: results,
+        viewBus,
     });
 
     return (

@@ -16,6 +16,7 @@
     "mobx-react": "^7.0.0",
     "mobx-react-lite": "^3.0.0",
     "patch-package": "^6.2.2",
+    "prop-types": "^15.7.2",
     "react": "16.13.1",
     "react-native": "0.63.3",
     "react-native-canvas": "^0.1.37",

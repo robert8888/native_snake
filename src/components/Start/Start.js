@@ -1,9 +1,10 @@
-import React from "react";
+import React, {useMemo} from "react";
 import {useHistory} from "react-router-native"
 import {
     View,
     Text,
     Image, TouchableHighlight,
+    ActivityIndicator
 } from "react-native"
 import {
     Button,
@@ -14,12 +15,11 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import themes from "../../theme/theme";
 import {observer} from "mobx-react-lite"
 import {inject} from "mobx-react";
-//import {useConfigurationStore} from "../../store/configuration.store";
+
 
 const Start = inject("config")(observer(({config}) => {
     const history = useHistory();
     const styles = useStyle(styleSheet, config);
- //   const config = useConfigurationStore();
     const theme = themes[config.current.themeName];
 
     const onPressStart = () => {
@@ -30,24 +30,38 @@ const Start = inject("config")(observer(({config}) => {
         history.push("/settings")
     }
 
-    return (
-        <View style={styles.container}>
-            <TouchableHighlight style={styles.icon} onPress={onPressSetting}>
-                <Icon name="gears" size={28} color={theme.colors.light}/>
-            </TouchableHighlight>
+    const startScreenContent = useMemo(()=>{
+        return (
+            <View style={styles.container}>
+                <TouchableHighlight style={styles.icon} onPress={onPressSetting}>
+                    <Icon name="gears" size={28} color={theme.colors.light}/>
+                </TouchableHighlight>
 
-            <Text style={styles.title}>
-                SNAKE
-            </Text>
-            <Image
-                style={styles.logo}
-                source={theme.images.cobra.source}/>
-            <Button
-                title={"START"}
-                onPress={onPressStart}
-                buttonStyle={styles.buttonStart}/>
-        </View>
-    )
+                <Text style={styles.title}>
+                    SNAKE
+                </Text>
+                <Image
+                    style={styles.logo}
+                    source={theme.images.cobra.source}/>
+                <Button
+                    title={"START"}
+                    onPress={onPressStart}
+                    buttonStyle={styles.buttonStart}/>
+            </View>
+        )
+    }, [styles])
+
+    const loadingIndicator = useMemo(()=>{
+        return (
+            <View style={styles.container}>
+                <ActivityIndicator size="large" color={"white"}/>
+            </View>
+        )
+    }, [styles])
+
+
+    return config.state === "loading" ? loadingIndicator : startScreenContent
+
 }))
 
 export default Start;

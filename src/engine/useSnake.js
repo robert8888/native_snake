@@ -3,14 +3,23 @@ import DIRECTIONS from "./model/Directions";
 import Coordinates from "./model/Coordinates";
 import Snake from "./model/Snake";
 import useBonusGenerator from "./useBonusGenerator";
+import idGenerator from "./.././utils/IdGenerator";
+import Turtle from "./model/Turtle";
+import useRandomCordinates from "./useRandomCordinates";
+import random from "../utils/randome";
+import Heart from "./model/Heart";
+import Diamond from "./model/Diamond";
+import Bomb from "./model/Bomb";
+import Sword from "./model/Sword";
 
 export default function useSnake({
  playStateStore: playState,
  configStore: config,
  resultsStore: results,
- viewStore: view
+ viewBus
 }){
-    const [generateBonuses] = useBonusGenerator(config.current);
+    const [generateBonuses] = useBonusGenerator(config);
+    const getRandomCoordinates = useRandomCordinates(config.current.gameSize);
 
     const [gameState, setGameState] = useState({
         over: false,
@@ -24,39 +33,46 @@ export default function useSnake({
         speed: config.current.startSteepInterval,
         start: 0,
         paused: false,
+        lives: 0,
+        diamonds: 0,
+        over: false,
     })
 
-    const stepIntervalHandle = useRef(null);
     const restartIntervalHandle = useRef(null)
     const direction = useRef(DIRECTIONS.UP);
     const lastStepDirection = useRef(direction.current);
+    const nextStepHandler = useRef();
     const snake = useRef(null);
     const bonuses = useRef(new Map());
 
+    const move = useCallback((nextDirection, oppositeDirection) => {
+        if(lastStepDirection.current === oppositeDirection) return;
+        if(lastStepDirection.current === nextDirection){
+            nextStepHandler.current()
+        } else {
+            direction.current = nextDirection;
+        }
+    }, [direction, lastStepDirection, nextStepHandler])
+
     const up = useCallback(()=>{
-        if(lastStepDirection.current === DIRECTIONS.DOWN) return;
-        direction.current = DIRECTIONS.UP;
-    }, [direction, lastStepDirection]);
+        move(DIRECTIONS.UP, DIRECTIONS.DOWN)
+    }, [move]);
 
     const down = useCallback(()=>{
-        if(lastStepDirection.current === DIRECTIONS.UP) return;
-        direction.current = DIRECTIONS.DOWN;
-    }, [direction, lastStepDirection]);
+        move(DIRECTIONS.DOWN, DIRECTIONS.UP)
+    }, [move]);
 
     const left = useCallback(()=>{
-        if(lastStepDirection.current === DIRECTIONS.RIGHT) return;
-        direction.current = DIRECTIONS.LEFT;
-    }, [direction, lastStepDirection]);
+        move(DIRECTIONS.LEFT, DIRECTIONS.RIGHT)
+    }, [move]);
 
     const right = useCallback(()=>{
-        if(lastStepDirection.current === DIRECTIONS.LEFT) return;
-        direction.current = DIRECTIONS.RIGHT;
-    }, [direction, lastStepDirection]);
+        move(DIRECTIONS.RIGHT, DIRECTIONS.LEFT)
+    }, [move]);
 
     const updateLocalState = useCallback((callback) => {
         localPlayState.current = callback(localPlayState.current);
         playState.update(localPlayState.current);
-        restartIntervalHandle.current();
     }, [playState, localPlayState])
 
     const restartState = useCallback(() => {
@@ -66,6 +82,9 @@ export default function useSnake({
             speed: config.current.startSteepInterval,
             paused: false,
             start: new Date().getTime(),
+            lives: config.current.lives,
+            diamonds: 0,
+            over:false,
         }))
         setGameState({
             over:false,
@@ -86,9 +105,8 @@ export default function useSnake({
     }, [restartState, restartIntervalHandle])
 
     const finish = useCallback(()=>{
-        restartState();
-        clearInterval(stepIntervalHandle.current)
-    }, [restartState, stepIntervalHandle])
+        setGameState(state => ({...state, gameOver: true}))
+    }, [setGameState])
 
     const togglePause = useCallback(() => {
         setGameState(state => ({...state, paused: !state.paused}))
@@ -97,15 +115,18 @@ export default function useSnake({
 
     const gameOver = useCallback(()=>{
         results.pushResult({
+            id: idGenerator(),
+            difficulty: config.current.difficulty,
             score: localPlayState.current.score,
             level: localPlayState.current.level,
             time: new Date().getTime() - localPlayState.current.start,
+            over: true,
         })
         setGameState({
             over: true,
             paused: true,
         })
-        clearInterval(stepIntervalHandle.current)
+        localPlayState.current.over = true;
     }, [results, localPlayState, setGameState])
 
     const controller = useMemo(()=>{
@@ -115,26 +136,105 @@ export default function useSnake({
     }, [up, down, left, right, togglePause, restart, finish])
 
     const updateView = useCallback(()=>{
-        view.update({
-            snake: snake.current.toView(),
-            bonuses: [...bonuses.current.values()].map(bonus => bonus.toView()),
-        })
-    }, [localPlayState, snake, bonuses, view])
+        viewBus?.update && typeof viewBus.update === "function" &&
+            viewBus.update({
+                snake: snake.current.toView(),
+                bonuses: [...bonuses.current.values()].map(bonus => bonus.toView()),
+            })
+    }, [localPlayState, snake, bonuses, viewBus])
+
+    const getTakenCoordinates = useCallback(() => {
+        return new Set([...snake.current.segmentsIds].concat(...bonuses.current.keys()))
+    }, [snake, bonuses])
+
+    const getBonusesByType = useCallback((type) =>
+        [...bonuses.current.values()].filter(bonus => bonus.type === type)
+    , [bonuses])
+
+    const removeNthTypeBonus = useCallback((type, n) => {
+        let count = -1;
+        for(let entire of bonuses.current.entries()){
+            if(entire[1].type === type){
+                if(count + 1 === n){
+                    bonuses.current.delete(entire[0])
+                    return;
+                } else {
+                    count++
+                }
+            }
+        }
+    }, [bonuses])
 
     const consumeBonus = useCallback((next) => {
         const bonus = bonuses.current.get(next.toString());
         bonuses.current.delete(bonus.toString());
-        snake.current.eat(next);
+        if(bonus.isApple){
+            snake.current.eat(next);
 
-        const nextBonus = generateBonuses(snake.current.segmentsIds);
-        bonuses.current.set(nextBonus.toString(), nextBonus);
+            const nextBonus = generateBonuses(getTakenCoordinates());
+            bonuses.current.set(nextBonus.toString(), nextBonus);
+        } else {
+            snake.current.crawl(next);
+        }
 
-        updateLocalState(state => bonus.modify(state));
-    }, [bonuses, snake, updateLocalState, localPlayState])
+        updateLocalState(state => {
+            const {state: nextState, snake: nextSnake} = bonus.modify(state, snake.current);
+            if(nextSnake) snake.current = nextSnake;
+            return nextState
+        });
+    }, [bonuses, snake, updateLocalState, localPlayState, getTakenCoordinates])
 
+
+    const createRandomBonus = useCallback((type, classConstructor) => {
+        const probability = Math.random();
+        if(probability > 0 &&  probability < config.current[type + "Probability"]){
+            if(getBonusesByType(type).length === config.current[type +"Limit"]){
+                //removeNthTypeBonus(type, random(0, config.current.turtleLimit))
+            } else {
+                const coordinates = getRandomCoordinates(getTakenCoordinates())
+                const turtle = new classConstructor(coordinates, config.current);
+                bonuses.current.set(turtle.toString(), turtle);
+            }
+        }
+
+    }, [config])
+
+    const randomBonuses = useCallback(()=>{
+        createRandomBonus("turtle", Turtle);
+        createRandomBonus("heart", Heart);
+        createRandomBonus("diamond", Diamond);
+        createRandomBonus("bomb", Bomb);
+        createRandomBonus("sword", Sword);
+    }, [createRandomBonus, config]);
+
+    const updateBonusesExpire = useCallback(()=>{
+        for(let bonus of bonuses.current.values()){
+            if(bonus.isExpired()){
+                bonuses.current.delete(bonus.toString());
+            }
+        }
+    }, [])
+
+    const updateBonuses = useCallback(()=>{
+        updateBonusesExpire();
+        randomBonuses()
+    }, [updateBonusesExpire, randomBonuses])
+
+    const collision = useCallback((next)=>{
+        localPlayState.current.lives--;
+        if(localPlayState.current.lives === 0){
+            localPlayState.current.over = true;
+        } else {
+            snake.current.crawl(next);
+            updateLocalState((state) => ({
+                ...state,
+                score : state.score - 100
+            }))
+        }
+    }, [localPlayState, gameOver])
 
     const step = useCallback(()=>{
-        if(localPlayState.current.paused) return;
+        if(!snake.current) return;
 
         const wallThrough = config.current.wallThrough;
         const size = config.current.gameSize;
@@ -146,7 +246,7 @@ export default function useSnake({
                     if(wallThrough){
                         y = size - 1;
                     } else {
-                        gameOver()
+                        localPlayState.current.over = true;
                         return;
                     }
                 }
@@ -159,7 +259,7 @@ export default function useSnake({
                     if(wallThrough){
                         y = 0;
                     } else {
-                        gameOver();
+                        localPlayState.current.over = true;
                         return;
                     }
                 }
@@ -172,7 +272,7 @@ export default function useSnake({
                     if(wallThrough){
                         x = 0;
                     } else {
-                        gameOver();
+                        localPlayState.current.over = true;
                         return;
                     }
                 }
@@ -185,7 +285,7 @@ export default function useSnake({
                     if(wallThrough){
                         x = size - 1;
                     } else {
-                        gameOver();
+                        localPlayState.current.over = true;
                         return;
                     }
                 }
@@ -195,7 +295,7 @@ export default function useSnake({
         }
 
         if(snake.current.has(next)){
-            gameOver();
+            collision(next);
             return;
         }
 
@@ -205,20 +305,26 @@ export default function useSnake({
             snake.current.crawl(next);
         }
         lastStepDirection.current = direction.current;
-    }, [localPlayState, gameOver, config, direction, updateView, lastStepDirection])
+
+        updateBonuses();
+
+        updateView();
+    }, [localPlayState, collision, config,  direction,snake, updateView, randomBonuses, lastStepDirection])
+
+    useEffect(() => nextStepHandler.current = step, [step, nextStepHandler]);
 
     const tick = useCallback(()=>{
-        step();
-        updateView();
-    }, [step, updateView])
+        if(localPlayState.current.over) {
+            gameOver();
+            return;
+        }
+        if(!localPlayState.current.paused){
+            step();
+        }
+        setTimeout(tick, localPlayState.current.speed);
+    }, [step, localPlayState, setGameState, gameOver]);
 
-    const restartClock = useCallback((force = false) => {
-        if(stepIntervalHandle.current){
-            clearInterval(stepIntervalHandle.current)
-        };
-        if(gameState.over && !force) return;
-        stepIntervalHandle.current = setInterval(tick, localPlayState.current.speed);
-    }, [tick, stepIntervalHandle, localPlayState, gameState])
+    const restartClock = useCallback((force = false) => tick(), [tick])
 
     useEffect(() =>{
         restartIntervalHandle.current = restartClock;
