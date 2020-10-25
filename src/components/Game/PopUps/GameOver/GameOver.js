@@ -37,7 +37,7 @@ const GameOver = inject("results", "config")(observer(({config, data: gameState,
                     <Separator style={styles.separator}/>
                     {last && last.difficulty && all[last.difficulty] &&
                         all[last.difficulty].map((result, index) =>(
-                            <ResultItem data={result} index={index + 1} current={result.id === last.id}/>
+                            <ResultItem key={result.id} data={result} index={index + 1} current={result.id === last.id}/>
                     )) }
                 </View>
 
